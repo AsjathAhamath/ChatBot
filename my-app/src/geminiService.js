@@ -1,8 +1,9 @@
 class GeminiService {
   constructor() {
     this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    // Updated to use gemini-2.0-flash as shown in your curl example
     this.baseUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
   }
 
   validateApiKey() {
@@ -18,10 +19,12 @@ class GeminiService {
       // Validate API key before making the request
       this.validateApiKey();
 
-      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
+      const response = await fetch(this.baseUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // Using X-goog-api-key header as shown in your curl example
+          "X-goog-api-key": this.apiKey,
         },
         body: JSON.stringify({
           contents: [

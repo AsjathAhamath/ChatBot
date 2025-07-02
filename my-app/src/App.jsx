@@ -18,17 +18,27 @@ function App() {
   const [apiKeyError, setApiKeyError] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     // Add user message
     const userMessage = { text: inputValue, sender: "user" };
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue("");
     setIsTyping(true);
 
     try {
-      const botResponse = await geminiService.generateResponse(inputValue);
+      const botResponse = await geminiService.generateResponse(currentInput);
       setMessages((prev) => [...prev, { text: botResponse, sender: "bot" }]);
       setApiKeyError(false); // Reset error state on successful response
     } catch (error) {
@@ -54,7 +64,8 @@ function App() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSendMessage();
     }
   };
@@ -72,17 +83,29 @@ function App() {
   // Check API key on component mount
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    console.log("API Key:", apiKey ? "Loaded" : "Missing");
+    console.log("API Key:", apiKey ? "Loaded ✓" : "Missing ✗");
+    console.log("Environment:", import.meta.env.MODE);
+
+    // Debug: Log all environment variables that start with VITE_
+    const viteEnvVars = Object.keys(import.meta.env)
+      .filter((key) => key.startsWith("VITE_"))
+      .reduce((obj, key) => {
+        obj[key] = import.meta.env[key] ? "Set" : "Not set";
+        return obj;
+      }, {});
+    console.log("VITE Environment Variables:", viteEnvVars);
 
     if (!apiKey) {
       setApiKeyError(true);
       setMessages((prev) => [
         ...prev,
         {
-          text: "⚠️ API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file and restart the server.",
+          text: "⚠️ API key is not configured. Please follow these steps:\n\n1. Create a .env file in your project root\n2. Add: VITE_GEMINI_API_KEY=your_api_key_here\n3. Restart your development server\n4. Get your API key from: https://makersuite.google.com/app/apikey",
           sender: "bot",
         },
       ]);
+    } else {
+      console.log("✓ API Key is properly configured");
     }
   }, []);
 
@@ -118,6 +141,19 @@ function App() {
                 🤖
               </span>
               <h2>Gemini Assistant</h2>
+              {apiKeyError && (
+                <span
+                  className="status-indicator error"
+                  title="API Key Missing"
+                >
+                  ⚠️
+                </span>
+              )}
+              {!apiKeyError && (
+                <span className="status-indicator success" title="Connected">
+                  ✓
+                </span>
+              )}
             </div>
             <button
               className="close-btn"
@@ -140,7 +176,16 @@ function App() {
                     🤖
                   </span>
                 )}
-                <div className="message-content">{message.text}</div>
+                <div className="message-content">
+                  {message.text.split("\n").map((line, lineIndex) => (
+                    <div key={lineIndex}>
+                      {line}
+                      {lineIndex < message.text.split("\n").length - 1 && (
+                        <br />
+                      )}
+                    </div>
+                  ))}
+                </div>
                 {message.sender === "user" && (
                   <span className="user-avatar" role="img" aria-label="User">
                     👤
