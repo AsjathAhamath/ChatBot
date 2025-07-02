@@ -1,57 +1,55 @@
 import { useState, useRef, useEffect } from "react";
 import "./App.css";
+import geminiService from "./geminiService";
 
 function App() {
+  // State declarations
   const [messages, setMessages] = useState([
     { text: "Hello there! 👋", sender: "bot" },
     {
-      text: "I'm your friendly chatbot. How can I help you today?",
+      text: "I'm your AI assistant powered by Gemini. How can I help you today?",
       sender: "bot",
     },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const handleSendMessage = () => {
-    if (inputValue.trim() === "") return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return;
 
     // Add user message
-    setMessages((prev) => [...prev, { text: inputValue, sender: "user" }]);
+    const userMessage = { text: inputValue, sender: "user" };
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
+    setIsTyping(true);
 
-    // Simulate bot thinking
-    setTimeout(() => {
+    try {
+      const botResponse = await geminiService.generateResponse(inputValue);
+      setMessages((prev) => [...prev, { text: botResponse, sender: "bot" }]);
+      setApiKeyError(false); // Reset error state on successful response
+    } catch (error) {
+      console.error("Error:", error);
+
+      // Check if it's an API key error
+      if (error.message.includes("API key is not configured")) {
+        setApiKeyError(true);
+      }
+
       setMessages((prev) => [
         ...prev,
         {
-          text: getBotResponse(inputValue),
+          text:
+            error.message ||
+            "Sorry, something went wrong. Please try again later.",
           sender: "bot",
         },
       ]);
-    }, 1000 + Math.random() * 1000); // Random delay for realism
-  };
-
-  const getBotResponse = (userInput) => {
-    const input = userInput.toLowerCase();
-    if (input.includes("hello") || input.includes("hi")) {
-      return "Hi again! What's on your mind?";
-    } else if (input.includes("how are you")) {
-      return "I'm just a bot, but I'm functioning perfectly! 😊";
-    } else if (input.includes("thank")) {
-      return "You're welcome! Is there anything else I can help with?";
-    } else {
-      const randomResponses = [
-        "Interesting! Tell me more about that.",
-        "I see. How does that make you feel?",
-        "Thanks for sharing that with me!",
-        "I'm learning from our conversation. Could you elaborate?",
-        "That's fascinating! What else would you like to discuss?",
-      ];
-      return randomResponses[
-        Math.floor(Math.random() * randomResponses.length)
-      ];
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -62,22 +60,40 @@ function App() {
   };
 
   const toggleChat = () => {
-    setIsOpen(!isOpen);
-    if (isOpen && !isMinimized) {
+    const willOpen = !isOpen;
+    setIsOpen(willOpen);
+
+    if (!willOpen && !isMinimized) {
       setIsMinimized(true);
-      setTimeout(() => setIsMinimized(false), 300); // Wait for animation
+      setTimeout(() => setIsMinimized(false), 300);
     }
   };
 
-  // Auto-scroll to bottom when messages change
+  // Check API key on component mount
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    console.log("API Key:", apiKey ? "Loaded" : "Missing");
+
+    if (!apiKey) {
+      setApiKeyError(true);
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: "⚠️ API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file and restart the server.",
+          sender: "bot",
+        },
+      ]);
+    }
+  }, []);
 
   return (
     <div className={`chatbot-container ${isOpen ? "open" : ""}`}>
       {!isOpen && (
-        <button className="chatbot-launcher" onClick={toggleChat}>
+        <button
+          className="chatbot-launcher"
+          onClick={toggleChat}
+          aria-label="Open chat"
+        >
           <span className="chat-icon">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -85,6 +101,7 @@ function App() {
               height="24"
               viewBox="0 0 24 24"
               fill="currentColor"
+              aria-hidden="true"
             >
               <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
             </svg>
@@ -97,63 +114,84 @@ function App() {
         <div className={`chatbot-window ${isMinimized ? "minimized" : ""}`}>
           <div className="chatbot-header" onClick={toggleChat}>
             <div className="chatbot-title">
-              <span className="bot-avatar">🤖</span>
-              <h2>Chat Assistant</h2>
+              <span className="bot-avatar" role="img" aria-label="Bot">
+                🤖
+              </span>
+              <h2>Gemini Assistant</h2>
             </div>
-            <button className="close-btn">{isMinimized ? "↑" : "↓"}</button>
+            <button
+              className="close-btn"
+              aria-label={isMinimized ? "Maximize chat" : "Minimize chat"}
+            >
+              {isMinimized ? "↑" : "↓"}
+            </button>
           </div>
 
           <div className="chatbot-messages">
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={`msg-${index}`}
                 className={`message ${message.sender} ${
                   index === messages.length - 1 ? "last" : ""
                 }`}
               >
                 {message.sender === "bot" && (
-                  <span className="bot-avatar">🤖</span>
+                  <span className="bot-avatar" role="img" aria-label="Bot">
+                    🤖
+                  </span>
                 )}
                 <div className="message-content">{message.text}</div>
                 {message.sender === "user" && (
-                  <span className="user-avatar">👤</span>
+                  <span className="user-avatar" role="img" aria-label="User">
+                    👤
+                  </span>
                 )}
               </div>
             ))}
-            <div ref={messagesEndRef} />
+
+            {isTyping && (
+              <div className="message bot">
+                <span className="bot-avatar" role="img" aria-label="Bot">
+                  🤖
+                </span>
+                <div className="message-content typing-indicator">
+                  <div className="typing-dots">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={`dot-${i}`} className="dot" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} aria-hidden="true" />
           </div>
 
           <div className="chatbot-input-area">
-            <div
-              className="typing-indicator"
-              style={{
-                display:
-                  messages[messages.length - 1]?.sender === "user"
-                    ? "block"
-                    : "none",
-              }}
-            >
-              <span>Bot is typing</span>
-              <div className="typing-dots">
-                <div className="dot"></div>
-                <div className="dot"></div>
-                <div className="dot"></div>
-              </div>
-            </div>
             <div className="input-wrapper">
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message..."
+                onKeyDown={handleKeyPress}
+                placeholder={
+                  apiKeyError ? "API key required..." : "Type your message..."
+                }
+                aria-label="Type your message"
+                disabled={isTyping || apiKeyError}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={inputValue.trim() === ""}
+                disabled={!inputValue.trim() || isTyping || apiKeyError}
                 className="send-btn"
+                aria-label="Send message"
               >
-                <svg viewBox="0 0 24 24" width="24" height="24">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                  aria-hidden="true"
+                >
                   <path
                     fill="currentColor"
                     d="M2,21L23,12L2,3V10L17,12L2,14V21Z"
