@@ -5,9 +5,9 @@ import geminiService from "./geminiService";
 function App() {
   // State declarations
   const [messages, setMessages] = useState([
-    { text: "Hello there! 👋", sender: "bot" },
+    { text: "Hello traveler! ✈️", sender: "bot" },
     {
-      text: "I'm your AI assistant powered by Gemini. How can I help you today?",
+      text: "I'm your AI travel assistant powered by Gemini. I can help with destinations, itineraries, travel tips, and more! Where would you like to go today?",
       sender: "bot",
     },
   ]);
@@ -38,13 +38,18 @@ function App() {
     setIsTyping(true);
 
     try {
-      const botResponse = await geminiService.generateResponse(currentInput);
+      // Create travel-focused prompt
+      const travelPrompt = `You are a travel expert AI assistant. Respond exclusively about travel-related topics. 
+        If the question isn't directly about travel, creatively connect it to travel. 
+        Keep responses helpful, engaging, and focused on destinations, trips, or travel experiences.
+        User question: ${currentInput}`;
+
+      const botResponse = await geminiService.generateResponse(travelPrompt);
       setMessages((prev) => [...prev, { text: botResponse, sender: "bot" }]);
-      setApiKeyError(false); // Reset error state on successful response
+      setApiKeyError(false);
     } catch (error) {
       console.error("Error:", error);
 
-      // Check if it's an API key error
       if (error.message.includes("API key is not configured")) {
         setApiKeyError(true);
       }
@@ -54,7 +59,7 @@ function App() {
         {
           text:
             error.message ||
-            "Sorry, something went wrong. Please try again later.",
+            "Sorry, I'm having trouble answering your travel question. Please try again later.",
           sender: "bot",
         },
       ]);
@@ -84,16 +89,6 @@ function App() {
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     console.log("API Key:", apiKey ? "Loaded ✓" : "Missing ✗");
-    console.log("Environment:", import.meta.env.MODE);
-
-    // Debug: Log all environment variables that start with VITE_
-    const viteEnvVars = Object.keys(import.meta.env)
-      .filter((key) => key.startsWith("VITE_"))
-      .reduce((obj, key) => {
-        obj[key] = import.meta.env[key] ? "Set" : "Not set";
-        return obj;
-      }, {});
-    console.log("VITE Environment Variables:", viteEnvVars);
 
     if (!apiKey) {
       setApiKeyError(true);
@@ -138,9 +133,9 @@ function App() {
           <div className="chatbot-header" onClick={toggleChat}>
             <div className="chatbot-title">
               <span className="bot-avatar" role="img" aria-label="Bot">
-                🤖
+                ✈️
               </span>
-              <h2>Gemini Assistant</h2>
+              <h2>Travel Assistant</h2>
               {apiKeyError && (
                 <span
                   className="status-indicator error"
@@ -173,7 +168,7 @@ function App() {
               >
                 {message.sender === "bot" && (
                   <span className="bot-avatar" role="img" aria-label="Bot">
-                    🤖
+                    ✈️
                   </span>
                 )}
                 <div className="message-content">
@@ -197,7 +192,7 @@ function App() {
             {isTyping && (
               <div className="message bot">
                 <span className="bot-avatar" role="img" aria-label="Bot">
-                  🤖
+                  ✈️
                 </span>
                 <div className="message-content typing-indicator">
                   <div className="typing-dots">
@@ -220,9 +215,9 @@ function App() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder={
-                  apiKeyError ? "API key required..." : "Type your message..."
+                  apiKeyError ? "API key required..." : "Ask about travel..."
                 }
-                aria-label="Type your message"
+                aria-label="Type your travel question"
                 disabled={isTyping || apiKeyError}
               />
               <button
